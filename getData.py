@@ -29,7 +29,9 @@ print(tmpdf)
 italyTime = pytz.timezone("CET") 
 oldMin = -1
 i = 0
-saveFrequency = 2
+j=0
+saveFrequency = 120
+uploadFrequency = 5
 histWindData = pd.DataFrame()
 newWindData = pd.DataFrame()
 saveFileName = 'na'
@@ -50,10 +52,11 @@ while continueLoop:
 
     if not (currentMin == oldMin):
         i = i+1
+        j=j+1
         oldMin = currentMin
         try:
             NPS = requests.get('https://sv-api.nps100.com/api/v1/wtg1536/', headers={'Authorization':'Token f8641c4daea06763ca6cdf46dbaeea40ee250dec'})
-            print(NPS)
+            #print(NPS)
         except: 
             print("data not collected")
             pass
@@ -62,21 +65,23 @@ while continueLoop:
         tmpdf = pd.json_normalize(data, meta=['timestamp','wind_speed','power','energy','yaw_position','yaw_delta','temp_amb','turbine_state','dispatch_enable','env_condition'])
         print(tmpdf)
         histWindData = pd.concat([histWindData, tmpdf])
-        newWindData = pd.concat([histWindData, tmpdf])
+        newWindData = pd.concat([newWindData, tmpdf])
 
     if (i==saveFrequency):
         print('Saving dataframe')
         tmpTime = currentTime.strftime('%y-%m-%d-%H-%M')
         tmpTime = str(tmpTime)
-        saveFileName = (r"C:\\Users\\School Account\\Desktop\\windData\\" + tmpTime + '.csv')
-        csv_path = pathlib.Path.cwd() / saveFileName
-        print(saveFileName)
+        saveFileName = (r"M:\\MLEPS\\windDashboard\\" + tmpTime + '.csv')
+        #print(saveFileName)
         try:  
             histWindData.to_csv(saveFileName)
             print("Saved")
         except:
             print('Data not written')
-            
+        i=0
+         
+    if (j==uploadFrequency):
+        print("Uploading")
         database = mysql.connector.connect(
             username = 'root',
             password = 'WartN52206.!.',
@@ -87,13 +92,14 @@ while continueLoop:
         #windDict = windData.to_dict(orient='list')
         
         for idx, row in newWindData.iterrows():
-            sql = "INSERT INTO test.windTable(timestamp, wind_speed, power, energy, yaw_position, yaw_delta, temp_amb, turbine_state, dispatch_enable, env_condition) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            sql = "INSERT INTO wind_data.wind_table(timestamp, wind_speed, power, energy, yaw_position, yaw_delta, temp_amb, turbine_state, dispatch_enable, env_condition) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             val = [row['timestamp'], row['wind_speed'], row['power'], row['energy'], row['yaw_position'], row['yaw_delta'], row['temp_amb'], row['turbine_state'], row['dispatch_enable'], row['env_condition']]
             mycursor.execute(sql,val)
         database.commit()
         database.close()
         newWindData = pd.DataFrame()
+        j=0
         
-        i=0
+        
     sleep(5)
 #https://www.youtube.com/watch?v=9VtkwH6iLL0
